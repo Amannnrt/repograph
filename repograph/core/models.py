@@ -2,6 +2,15 @@ from pydantic import BaseModel,Field
 from typing import Optional
 
 
+class GitMetadata(BaseModel):
+    commit_hash: Optional[str] = None
+    author: Optional[str] = None
+    commit_message: Optional[str] = None
+    commit_timestamp: Optional[str] = None
+    change_frequency: int = 0
+
+    
+
 class RepositoryFile(BaseModel):
     path: str
     language: str
@@ -21,3 +30,4 @@ class CodeChunk(BaseModel):
     imports_used: list[str] = Field(default_factory=list)
     parent_class: Optional[str] = None
     is_async: bool = False
+    git_metadata: Optional[GitMetadata] = None

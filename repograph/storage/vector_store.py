@@ -59,6 +59,35 @@ class VectorStore:
                 "end_line": chunk.end_line,
                 "docstring": chunk.docstring,
                 "content": chunk.content,
+                "commit_hash": (
+                    chunk.git_metadata.commit_hash
+                    if chunk.git_metadata
+                    else None
+                                ),
+
+                "author": (
+                    chunk.git_metadata.author
+                    if chunk.git_metadata
+                    else None
+                            ),
+
+                "commit_message": (
+                    chunk.git_metadata.commit_message
+                    if chunk.git_metadata
+                    else None
+                            ),
+
+                "commit_timestamp": (
+                    chunk.git_metadata.commit_timestamp
+                    if chunk.git_metadata
+                    else None
+                        ),
+
+                "change_frequency": (
+                    chunk.git_metadata.change_frequency
+                    if chunk.git_metadata
+                    else 0
+                    ),
             }
 
             points.append(

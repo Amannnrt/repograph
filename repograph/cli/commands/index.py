@@ -16,6 +16,9 @@ from repograph.providers.embeddings.ollama_provider import (
 from repograph.storage.vector_store import (
     VectorStore,
 )
+from repograph.git.history import (
+    get_file_git_metadata,
+)
 
 load_dotenv()
 
@@ -60,8 +63,15 @@ def index_command(
 
         chunks = chunker.chunk(file)
 
-        all_chunks.extend(chunks)
+        git_metadata = get_file_git_metadata(
+            repo_path=str(repo),
+            relative_file_path=file.path,
+        )
 
+        for chunk in chunks:
+            chunk.git_metadata = git_metadata
+
+        all_chunks.extend(chunks)
     print(
         f"[green]Extracted {len(all_chunks)} chunks[/green]"
     )

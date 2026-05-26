@@ -77,6 +77,21 @@ def search_command(
             f"{round(result.score, 4)}"
         )
 
+        print(
+        f"[cyan]Last Commit:[/cyan] "
+        f"{payload.get('commit_message')}"
+        )
+
+        print(
+        f"[yellow]Author:[/yellow] "
+        f"{payload.get('author')}"
+        )
+
+        print(
+        f"[green]Change Frequency:[/green] "
+        f"{payload.get('change_frequency')}"
+        )
+
         print("\n[bold]Code:[/bold]\n")
 
         print(
