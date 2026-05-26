@@ -13,6 +13,9 @@ from repograph.indexing.loader import RepositoryLoader
 from repograph.providers.embeddings.ollama_provider import (
     OllamaEmbeddingProvider,
 )
+from repograph.storage.vector_store import (
+    VectorStore,
+)
 
 load_dotenv()
 
@@ -25,8 +28,6 @@ def index_command(
 ):
 
     repo = Path(repo_path).resolve()
-
-    # Validate repo path
     if not repo.exists():
         print("[red]Repository path does not exist[/red]")
         raise typer.Exit(code=1)
@@ -40,7 +41,8 @@ def index_command(
         f"{repo}"
     )
 
-    #load repo files
+    #loadinf files
+
     loader = RepositoryLoader()
 
     files = loader.load(str(repo))
@@ -49,7 +51,7 @@ def index_command(
         f"[cyan]Loaded {len(files)} source files[/cyan]"
     )
 
-    #AST chunking
+    #AST
     chunker = ASTChunker()
 
     all_chunks = []
@@ -64,7 +66,8 @@ def index_command(
         f"[green]Extracted {len(all_chunks)} chunks[/green]"
     )
 
-    #preview chunks
+    #Preview chunks
+
     for chunk in all_chunks[:5]:
 
         print("=" * 60)
@@ -88,15 +91,15 @@ def index_command(
             f"[blue]Docstring:[/blue] "
             f"{chunk.docstring}"
         )
+    #Generate embeddings
 
-    #generate embeddings
     provider = OllamaEmbeddingProvider(
         model="nomic-embed-text"
     )
 
     texts = [
         format_chunk_for_embedding(chunk)
-        for chunk in all_chunks[:3]
+        for chunk in all_chunks
     ]
 
     print("[cyan]Generating embeddings...[/cyan]")
@@ -110,4 +113,21 @@ def index_command(
     print(
         f"[yellow]Embedding dimension:[/yellow] "
         f"{len(embeddings[0])}"
+    )
+
+    #Store embeddings in Qdrant
+
+    vector_store = VectorStore()
+
+    vector_store.create_collection(
+        vector_size=len(embeddings[0])
+    )
+
+    vector_store.insert_chunks(
+        chunks=all_chunks,
+        embeddings=embeddings,
+    )
+
+    print(
+        "[green]Stored embeddings in Qdrant[/green]"
     )
