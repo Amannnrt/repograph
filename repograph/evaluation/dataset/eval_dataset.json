@@ -1,0 +1,17 @@
+[
+  {
+    "question": "Where are embeddings generated?",
+    "expected_function": "embed",
+    "expected_file": "repograph/providers/embeddings/ollama_provider.py"
+  },
+  {
+    "question": "Where is repository loading implemented?",
+    "expected_function": "load",
+    "expected_file": "repograph/indexing/loader.py"
+  },
+  {
+    "question": "Which class handles AST chunking?",
+    "expected_function": "ASTChunker",
+    "expected_file": "repograph/indexing/chunker.py"
+  }
+]

@@ -63,7 +63,7 @@ class VectorStore:
 
             points.append(
                 PointStruct(
-                    id=idx,
+                    id=chunk.chunk_id,
                     vector=embedding,
                     payload=payload,
                 )

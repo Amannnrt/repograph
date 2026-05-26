@@ -57,6 +57,20 @@ def search_command(
             f"[blue]Docstring:[/blue] "
             f"{payload.get('docstring')}"
         )
+        print(
+            f"[yellow]Parent Class:[/yellow] "
+            f"{payload.get('parent_class')}"
+            )
+
+        print(
+            f"[cyan]Async:[/cyan] "
+            f"{payload.get('is_async')}"
+        )
+
+        print(
+            f"[green]Imports:[/green] "
+            f"{payload.get('imports_used')}"
+        )
 
         print(
             f"[red]Score:[/red] "

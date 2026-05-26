@@ -36,3 +36,5 @@ logs/
 *.log
 
 .qdrant/
+
+project_dump.txt

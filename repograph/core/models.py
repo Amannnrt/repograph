@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel,Field
 from typing import Optional
 
 
@@ -18,3 +18,6 @@ class CodeChunk(BaseModel):
     start_line: int
     end_line: int
     docstring:Optional[str] = None
+    imports_used: list[str] = Field(default_factory=list)
+    parent_class: Optional[str] = None
+    is_async: bool = False

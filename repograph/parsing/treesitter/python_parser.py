@@ -1,159 +1,239 @@
-import uuid
-
-from tree_sitter import Language, Node, Parser
+from tree_sitter import Language, Parser
 from tree_sitter_python import language
-from repograph.utils.hash import generate_chunk_id
+
 from repograph.core.models import CodeChunk
+from repograph.utils.hash import generate_chunk_id
 
 
 PY_LANGUAGE = Language(language())
+
 parser = Parser(PY_LANGUAGE)
 
 
 def parse_code(code: str):
-    """
-    Parse Python source code into a tree-sitter AST.
-    """
-    return parser.parse(bytes(code, "utf-8"))
+    tree = parser.parse(
+        bytes(code, "utf-8")
+    )
+    return tree
 
 
-def extract_docstring(node: Node, code: str) -> str | None:
-    """
-    Extract docstring from function/class body if present.
-    """
+def get_node_text(code: str, node):
+    return code[
+        node.start_byte:node.end_byte
+    ]
 
-    for child in node.children:
 
-        if child.type == "block":
+def extract_docstring(code: str, node):
 
-            for block_child in child.children:
+    if len(node.children) == 0:
+        return None
 
-                if block_child.type == "expression_statement":
+    block = node.children[-1]
 
-                    text = code[
-                        block_child.start_byte:block_child.end_byte
-                    ]
+    if block.type != "block":
+        return None
 
-                    stripped = text.strip()
+    if len(block.children) == 0:
+        return None
 
-                    if (
-                        stripped.startswith('"""')
-                        or stripped.startswith("'''")
-                    ):
-                        return stripped
+    first_stmt = block.children[0]
 
-    return None
+    if first_stmt.type != "expression_statement":
+        return None
+
+    string_node = first_stmt.children[0]
+
+    if string_node.type != "string":
+        return None
+
+    return get_node_text(
+        code,
+        string_node,
+    )
+
+
+def extract_imports(root, code):
+
+    imports = []
+
+    for child in root.children:
+
+        if child.type == "import_statement":
+
+            text = get_node_text(
+                code,
+                child,
+            )
+
+            imports.append(text)
+
+        elif child.type == "import_from_statement":
+
+            text = get_node_text(
+                code,
+                child,
+            )
+
+            imports.append(text)
+
+    return imports
 
 
 def create_chunk(
-    node: Node,
+    *,
     code: str,
+    node,
     file_path: str,
     chunk_type: str,
-) -> CodeChunk:
-    """
-    Create a CodeChunk from an AST node.
-    """
-
-    start_byte = node.start_byte
-    end_byte = node.end_byte
-
-    content = code[start_byte:end_byte]
-
+    language: str,
+    parent_class: str | None = None,
+    imports_used: list[str] | None = None,
+):
+    imports_used = imports_used or []
     name = "unknown"
 
     for child in node.children:
 
         if child.type == "identifier":
-            name = code[child.start_byte:child.end_byte]
+
+            name = get_node_text(
+                code,
+                child,
+            )
+
             break
+
+    start_line = (
+        node.start_point[0] + 1
+    )
+
+    end_line = (
+        node.end_point[0] + 1
+    )
+
+    node_code = get_node_text(
+        code,
+        node,
+    )
+
+    docstring = extract_docstring(
+        code,
+        node,
+    )
+
+    is_async = (
+        node.type
+        == "async_function_definition"
+    )
+
+    full_name = (
+        f"{parent_class}.{name}"
+        if parent_class
+        else name
+    )
 
     return CodeChunk(
         chunk_id=generate_chunk_id(
-                    file_path=file_path,
-                    chunk_type=chunk_type,
-                    name=name,),
+            file_path=file_path,
+            chunk_type=chunk_type,
+            name=full_name,
+        ),
         file_path=file_path,
-        language="python",
+        language=language,
         chunk_type=chunk_type,
-        name=name,
-        content=content,
-        start_line=node.start_point[0] + 1,
-        end_line=node.end_point[0] + 1,
-        docstring=extract_docstring(node, code),
+        name=full_name,
+        content=node_code,
+        start_line=start_line,
+        end_line=end_line,
+        docstring=docstring,
+        imports_used=imports_used,
+        parent_class=parent_class,
+        is_async=is_async,
     )
 
 
 def walk_tree(
-    node: Node,
+    *,
     code: str,
+    node,
     file_path: str,
+    language: str,
+    imports_used: list[str],
     chunks: list[CodeChunk],
+    parent_class: str | None = None,
 ):
-    """
-    Recursively traverse AST and extract chunks.
-    """
 
-    if node.type == "function_definition":
+    current_parent = parent_class
 
-        chunks.append(
-            create_chunk(
-                node=node,
-                code=code,
-                file_path=file_path,
-                chunk_type="function",
-            )
+    if node.type == "class_definition":
+
+        class_chunk = create_chunk(
+            code=code,
+            node=node,
+            file_path=file_path,
+            chunk_type="class",
+            language=language,
+            imports_used=imports_used,
         )
 
-    elif node.type == "async_function_definition":
+        chunks.append(class_chunk)
 
-        chunks.append(
-            create_chunk(
-                node=node,
-                code=code,
-                file_path=file_path,
-                chunk_type="async_function",
-            )
+        current_parent = class_chunk.name
+
+    elif node.type in [
+        "function_definition",
+        "async_function_definition",
+    ]:
+
+        function_chunk = create_chunk(
+            code=code,
+            node=node,
+            file_path=file_path,
+            chunk_type="function",
+            language=language,
+            parent_class=parent_class,
+            imports_used=imports_used,
         )
 
-    elif node.type == "class_definition":
-
-        chunks.append(
-            create_chunk(
-                node=node,
-                code=code,
-                file_path=file_path,
-                chunk_type="class",
-            )
-        )
+        chunks.append(function_chunk)
 
     for child in node.children:
+
         walk_tree(
-            node=child,
             code=code,
+            node=child,
             file_path=file_path,
+            language=language,
+            imports_used=imports_used,
             chunks=chunks,
+            parent_class=current_parent,
         )
 
 
+        
 def extract_chunks(
+    *,
     code: str,
     file_path: str,
-) -> list[CodeChunk]:
-    """
-    Extract semantic chunks from Python code.
-    """
+):
 
     tree = parse_code(code)
 
     root = tree.root_node
 
-    chunks: list[CodeChunk] = []
+    imports_used = extract_imports(
+        root,
+        code,
+    )
+
+    chunks = []
 
     walk_tree(
-        node=root,
         code=code,
+        node=root,
         file_path=file_path,
+        language="python",
+        imports_used=imports_used,
         chunks=chunks,
     )
 
