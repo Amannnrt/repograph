@@ -2,7 +2,7 @@ import uuid
 
 from tree_sitter import Language, Node, Parser
 from tree_sitter_python import language
-
+from repograph.utils.hash import generate_chunk_id
 from repograph.core.models import CodeChunk
 
 
@@ -69,7 +69,10 @@ def create_chunk(
             break
 
     return CodeChunk(
-        chunk_id=str(uuid.uuid4()),
+        chunk_id=generate_chunk_id(
+                    file_path=file_path,
+                    chunk_type=chunk_type,
+                    name=name,),
         file_path=file_path,
         language="python",
         chunk_type=chunk_type,
