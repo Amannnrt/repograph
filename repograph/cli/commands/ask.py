@@ -1,6 +1,12 @@
 import typer
 from rich import print
 
+from repograph.providers.llm.ollama_provider import (
+    OllamaLLMProvider,
+)
+from repograph.retrieval.prompt_builder import (
+    build_prompt,
+)
 from repograph.retrieval.retriever import (
     Retriever,
 )
@@ -9,7 +15,7 @@ from repograph.retrieval.retriever import (
 def ask_command(
     query: str = typer.Argument(
         ...,
-        help="Question to ask about the repository",
+        help="Question to ask about repository",
     )
 ):
 
@@ -17,48 +23,35 @@ def ask_command(
         f"[cyan]Query:[/cyan] {query}"
     )
 
+
     retriever = Retriever()
 
-    results = retriever.search(query)
+    results = retriever.search(query,limit=2)
 
     print(
-        f"[green]Found {len(results)} relevant chunks[/green]"
+        f"[green]Retrieved {len(results)} chunks[/green]"
     )
 
-    for idx, result in enumerate(results, start=1):
 
-        payload = result.payload
+    prompt = build_prompt(
+        query=query,
+        retrieved_chunks=results,
+    )
 
-        print("=" * 60)
 
-        print(
-            f"[bold yellow]{idx}. "
-            f"{payload['name']}[/bold yellow]"
-        )
+    llm = OllamaLLMProvider()
 
-        print(
-            f"[magenta]Type:[/magenta] "
-            f"{payload['chunk_type']}"
-        )
+    print(
+        "[yellow]Generating answer...[/yellow]"
+    )
 
-        print(
-            f"[cyan]File:[/cyan] "
-            f"{payload['file_path']}"
-        )
+    answer = llm.generate(prompt)
 
-        print(
-            f"[green]Lines:[/green] "
-            f"{payload['start_line']}"
-            f"-{payload['end_line']}"
-        )
+    print("\n")
+    print("=" * 60)
 
-        print(
-            f"[blue]Docstring:[/blue] "
-            f"{payload['docstring']}"
-        )
+    print(
+        "[bold green]Answer:[/bold green]\n"
+    )
 
-        print(
-            f"[white]\n{payload['content'][:500]}"
-        )
-
-        print()
+    print(answer)
