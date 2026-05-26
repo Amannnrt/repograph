@@ -22,10 +22,7 @@ class VectorStore:
             path=path,
         )
 
-    def create_collection(
-        self,
-        vector_size: int,
-    ):
+    def create_collection(self,vector_size: int,):
 
         collections = self.client.get_collections()
 
@@ -45,12 +42,7 @@ class VectorStore:
             ),
         )
 
-    def insert_chunks(
-        self,
-        chunks: list[CodeChunk],
-        embeddings: list[list[float]],
-    ):
-
+    def insert_chunks(self,chunks: list[CodeChunk],embeddings: list[list[float]],):
         points = []
 
         for idx, (chunk, embedding) in enumerate(
@@ -81,3 +73,12 @@ class VectorStore:
             collection_name=self.collection_name,
             points=points,
         )
+    def search(self,query_embedding: list[float],limit: int = 5,):
+
+        results = self.client.query_points(
+        collection_name=self.collection_name,
+        query=query_embedding,
+        limit=limit,
+        )
+
+        return results.points
