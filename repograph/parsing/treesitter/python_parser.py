@@ -1,6 +1,6 @@
 import uuid
 
-from tree_sitter import Language, Parser
+from tree_sitter import Language, Node, Parser
 from tree_sitter_python import language
 
 from repograph.core.models import CodeChunk
@@ -14,75 +14,144 @@ def parse_code(code: str):
     """
     Parse Python source code into a tree-sitter AST.
     """
-    tree = parser.parse(bytes(code, "utf-8"))
-    return tree
+    return parser.parse(bytes(code, "utf-8"))
 
 
-def extract_functions(code: str, file_path: str) -> list[CodeChunk]:
+def extract_docstring(node: Node, code: str) -> str | None:
     """
-    Extract top-level Python functions as CodeChunk objects.
+    Extract docstring from function/class body if present.
+    """
+
+    for child in node.children:
+
+        if child.type == "block":
+
+            for block_child in child.children:
+
+                if block_child.type == "expression_statement":
+
+                    text = code[
+                        block_child.start_byte:block_child.end_byte
+                    ]
+
+                    stripped = text.strip()
+
+                    if (
+                        stripped.startswith('"""')
+                        or stripped.startswith("'''")
+                    ):
+                        return stripped
+
+    return None
+
+
+def create_chunk(
+    node: Node,
+    code: str,
+    file_path: str,
+    chunk_type: str,
+) -> CodeChunk:
+    """
+    Create a CodeChunk from an AST node.
+    """
+
+    start_byte = node.start_byte
+    end_byte = node.end_byte
+
+    content = code[start_byte:end_byte]
+
+    name = "unknown"
+
+    for child in node.children:
+
+        if child.type == "identifier":
+            name = code[child.start_byte:child.end_byte]
+            break
+
+    return CodeChunk(
+        chunk_id=str(uuid.uuid4()),
+        file_path=file_path,
+        language="python",
+        chunk_type=chunk_type,
+        name=name,
+        content=content,
+        start_line=node.start_point[0] + 1,
+        end_line=node.end_point[0] + 1,
+        docstring=extract_docstring(node, code),
+    )
+
+
+def walk_tree(
+    node: Node,
+    code: str,
+    file_path: str,
+    chunks: list[CodeChunk],
+):
+    """
+    Recursively traverse AST and extract chunks.
+    """
+
+    if node.type == "function_definition":
+
+        chunks.append(
+            create_chunk(
+                node=node,
+                code=code,
+                file_path=file_path,
+                chunk_type="function",
+            )
+        )
+
+    elif node.type == "async_function_definition":
+
+        chunks.append(
+            create_chunk(
+                node=node,
+                code=code,
+                file_path=file_path,
+                chunk_type="async_function",
+            )
+        )
+
+    elif node.type == "class_definition":
+
+        chunks.append(
+            create_chunk(
+                node=node,
+                code=code,
+                file_path=file_path,
+                chunk_type="class",
+            )
+        )
+
+    for child in node.children:
+        walk_tree(
+            node=child,
+            code=code,
+            file_path=file_path,
+            chunks=chunks,
+        )
+
+
+def extract_chunks(
+    code: str,
+    file_path: str,
+) -> list[CodeChunk]:
+    """
+    Extract semantic chunks from Python code.
     """
 
     tree = parse_code(code)
 
     root = tree.root_node
 
-    chunks = []
+    chunks: list[CodeChunk] = []
 
-    for child in root.children:
-
-        if child.type != "function_definition":
-            continue
-
-        start_byte = child.start_byte
-        end_byte = child.end_byte
-
-        function_code = code[start_byte:end_byte]
-
-        function_name = "unknown"
-
-        for node in child.children:
-            if node.type == "identifier":
-                function_name = code[node.start_byte:node.end_byte]
-                break
-
-        chunk = CodeChunk(
-            chunk_id=str(uuid.uuid4()),
-            file_path=file_path,
-            language="python",
-            chunk_type="function",
-            name=function_name,
-            content=function_code,
-            start_line=child.start_point[0] + 1,
-            end_line=child.end_point[0] + 1,
-        )
-
-        chunks.append(chunk)
-
-    return chunks
-
-
-if __name__ == "__main__":
-
-    sample_code = """
-import jwt
-
-def validate_token(token):
-    payload = jwt.decode(token, "secret", algorithms=["HS256"])
-    return payload
-
-def login_user(username, password):
-    return True
-"""
-
-    chunks = extract_functions(
-        code=sample_code,
-        file_path="auth/service.py",
+    walk_tree(
+        node=root,
+        code=code,
+        file_path=file_path,
+        chunks=chunks,
     )
 
-    for chunk in chunks:
-        print("=" * 50)
-        print(f"Function: {chunk.name}")
-        print(f"Lines: {chunk.start_line} - {chunk.end_line}")
-        print(chunk.content)
-        print()
+    return chunks

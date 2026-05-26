@@ -1,5 +1,5 @@
 from repograph.core.models import CodeChunk, RepositoryFile
-from repograph.parsing.treesitter.python_parser import extract_functions
+from repograph.parsing.treesitter.python_parser import extract_chunks
 
 
 class ASTChunker:
@@ -7,9 +7,11 @@ class ASTChunker:
     def chunk(self, file: RepositoryFile) -> list[CodeChunk]:
 
         if file.language == "python":
-            return extract_functions(
+            return extract_chunks(
                 code=file.content,
                 file_path=file.path,
             )
 
         return []
+
+    

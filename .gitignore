@@ -34,3 +34,5 @@ htmlcov/
 # Logs
 logs/
 *.log
+
+.qdrant/

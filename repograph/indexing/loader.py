@@ -1,16 +1,20 @@
-#file : repograph/indexing/loader.py 
 """
-purpose :
-recursively scan repos,
+purpose:
+recursively scan repositories,
 ignore junk folders,
-detect,supported files
-return structred object
+detect supported source files,
+return structured RepositoryFile objects
 
-supported languages right now - .py, .ts, .js
+supported languages right now:
+- Python (.py)
+- TypeScript (.ts)
+- JavaScript (.js)
 """
-from pathlib import Path 
+
+from pathlib import Path
 
 from repograph.core.models import RepositoryFile
+
 
 IGNORE_DIRS = {
     ".git",
@@ -21,6 +25,7 @@ IGNORE_DIRS = {
     "build",
 }
 
+
 SUPPORTED_EXTENSIONS = {
     ".py": "python",
     ".ts": "typescript",
@@ -29,36 +34,60 @@ SUPPORTED_EXTENSIONS = {
 
 
 class RepositoryLoader:
-    def load(self,repo_path:str) -> list[RepositoryFile]:
-        repo = Path(repo_path)
 
-        files = []
+    def load(
+        self,
+        repo_path: str,
+    ) -> list[RepositoryFile]:
+
+        repo = Path(repo_path).resolve()
+
+        files: list[RepositoryFile] = []
+
         for path in repo.rglob("*"):
+
+            # Skip ignored directories
             if any(part in IGNORE_DIRS for part in path.parts):
                 continue
-            if not path.is_file():
-                continue 
-            extension = path.suffix 
 
+            # Skip non-files
+            if not path.is_file():
+                continue
+
+            extension = path.suffix
+
+            # Skip unsupported file types
             if extension not in SUPPORTED_EXTENSIONS:
-                continue 
+                continue
 
             try:
-                content = path.read_text(encoding="utf-8")
+
+                content = path.read_text(
+                    encoding="utf-8",
+                )
+
+                relative_path = str(
+                    path.relative_to(repo)
+                )
 
                 files.append(
                     RepositoryFile(
-                        path = str(path),
-                        language = SUPPORTED_EXTENSIONS[extension],
-                        content = content,
-                        size_bytes = path.stat().st_size,
+                        path=relative_path,
+                        language=SUPPORTED_EXTENSIONS[extension],
+                        content=content,
+                        size_bytes=path.stat().st_size,
                     )
                 )
-            except Exception:
-                print("repository loader error")
-                continue 
 
-        return files 
+            except Exception as error:
 
+                print(
+                    f"Repository loader error "
+                    f"for {path}: {error}"
+                )
+
+                continue
+
+        return files
     
         
