@@ -1,8 +1,24 @@
 import ollama
+from rich import print
 
 from repograph.providers.embeddings.base import (
     EmbeddingProvider,
 )
+
+
+MAX_EMBED_INPUT_CHARS = 3000
+
+
+def safe_text(
+    text: str,
+) -> str:
+
+    text = text or ""
+
+    if len(text) > MAX_EMBED_INPUT_CHARS:
+        return text[:MAX_EMBED_INPUT_CHARS]
+
+    return text
 
 
 class OllamaEmbeddingProvider(
@@ -22,15 +38,37 @@ class OllamaEmbeddingProvider(
 
         embeddings = []
 
-        for text in texts:
+        for idx, text in enumerate(texts):
 
-            response = ollama.embeddings(
-                model=self.model,
-                prompt=text,
-            )
+            safe_prompt = safe_text(text)
 
-            embeddings.append(
-                response["embedding"]
-            )
+            try:
+
+                response = ollama.embed(
+                    model=self.model,
+                    input=safe_prompt,
+                )
+
+                embeddings.append(
+                    response["embeddings"][0]
+                )
+
+            except Exception as error:
+
+                print(
+                    f"[red]Embedding failed "
+                    f"for chunk {idx}[/red]"
+                )
+
+                print(
+                    f"[yellow]Input size:[/yellow] "
+                    f"{len(safe_prompt)} chars"
+                )
+
+                print(
+                    f"[red]{error}[/red]"
+                )
+
+                continue
 
         return embeddings
